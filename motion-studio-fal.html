@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>VIVID — AI動画生成</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --ink: #0d0d12;
+  --paper: #f5f3ee;
+  --cream: #ede9e0;
+  --gold: #c9a84c;
+  --gold2: #e8c97a;
+  --rust: #c05a2e;
+  --sage: #5a7a5e;
+  --text: #1a1a22;
+  --muted: #8a8070;
+  --border: rgba(201,168,76,0.25);
+  --shadow: 0 8px 40px rgba(13,13,18,0.12);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  background: var(--paper);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Grain texture */
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:999;
+  opacity:0.6;
+}
+
+.app {
+  max-width: 440px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 40px;
+}
+
+/* ── Header ── */
+header {
+  padding: 36px 24px 24px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1;
+}
+.logo em {
+  font-style: italic;
+  color: var(--gold);
+}
+.tagline {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.header-deco {
+  position: absolute;
+  right: 24px;
+  top: 32px;
+  width: 48px;
+  height: 48px;
+  border: 1.5px solid var(--gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: var(--cream);
+}
+
+/* ── API key bar ── */
+.api-bar {
+  margin: 20px 24px 0;
+  background: var(--ink);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.api-bar.ok { background: #1a2e1c; }
+.api-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--rust);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.api-bar.ok .api-dot { background: #4ade80; }
+.api-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: #f5f3ee;
+  font-family: 'Outfit', monospace;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.api-input::placeholder { color: rgba(245,243,238,0.35); }
+.api-save {
+  background: var(--gold);
+  color: var(--ink);
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.api-save:active { transform: scale(0.94); }
+.api-status {
+  font-size: 11px;
+  color: rgba(245,243,238,0.5);
+  margin-top: 6px;
+  padding: 0 16px;
+}
+
+/* ── Main ── */
+main { flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+
+/* ── Section ── */
+.section {
+  background: var(--cream);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.section-head {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(201,168,76,0.06);
+}
+.step-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px;
+  color: var(--gold);
+  line-height: 1;
+  width: 28px;
+  flex-shrink: 0;
+}
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.section-body { padding: 18px; }
+
+/* ── Upload ── */
+.upload-zone {
+  border: 2px dashed rgba(201,168,76,0.4);
+  border-radius: 12px;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+  background: rgba(201,168,76,0.03);
+}
+.upload-zone:active { border-color: var(--gold); background: rgba(201,168,76,0.08); }
+.upload-zone.filled { min-height: 220px; border-style: solid; border-color: var(--gold); }
+.upload-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
+}
+.upload-icon { font-size: 32px; margin-bottom: 10px; }
+.upload-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.upload-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+#previewImg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: none;
+  border-radius: 10px;
+}
+.img-badge {
+  position: absolute; bottom: 10px; right: 10px;
+  background: rgba(13,13,18,0.75);
+  color: #f5f3ee;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.1em;
+  display: none;
+  backdrop-filter: blur(6px);
+}
+.upload-zone.filled .img-badge { display: block; }
+
+/* ── Motion ── */
+.motion-list { display: flex; flex-direction: column; gap: 10px; }
+.motion-item {
+  border: 1.5px solid rgba(201,168,76,0.2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: all 0.2s;
+  background: rgba(255,255,255,0.4);
+}
+.motion-item:active { transform: scale(0.97); }
+.motion-item.active {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.08);
+  box-shadow: 0 2px 16px rgba(201,168,76,0.15);
+}
+.motion-emoji { font-size: 24px; flex-shrink: 0; }
+.motion-text { flex: 1; }
+.motion-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.motion-desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.motion-radio {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  flex-shrink: 0;
+  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.motion-item.active .motion-radio {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.motion-item.active .motion-radio::after {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+/* ── Duration ── */
+.dur-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+.dur-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+.dur-val {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px;
+  color: var(--gold);
+  line-height: 1;
+}
+.dur-val span { font-size: 14px; font-family: 'Outfit', sans-serif; color: var(--muted); font-weight: 400; }
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 3px;
+  background: rgba(201,168,76,0.2);
+  border-radius: 2px;
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--gold);
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(201,168,76,0.4);
+}
+.dur-ticks { display: flex; justify-content: space-between; margin-top: 8px; }
+.dur-ticks span { font-size: 10px; color: var(--muted); }
+
+/* ── Custom prompt ── */
+.prompt-wrap { display: flex; flex-direction: column; gap: 8px; }
+.prompt-label { font-size: 11px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+.prompt-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.preset-chip {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(255,255,255,0.5);
+}
+.preset-chip:active, .preset-chip.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--ink);
+  font-weight: 600;
+}
+textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.6);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  resize: none;
+  outline: none;
+  line-height: 1.6;
+  transition: border-color 0.2s;
+  min-height: 70px;
+}
+textarea:focus { border-color: var(--gold); }
+textarea::placeholder { color: var(--muted); }
+
+/* ── Generate button ── */
+.gen-btn {
+  width: 100%;
+  padding: 20px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 14px;
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+  font-style: italic;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.02em;
+}
+.gen-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(201,168,76,0.15));
+}
+.gen-btn:active { transform: scale(0.97); background: #1a1a22; }
+.gen-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.gen-btn-sub { display: block; font-family: 'Outfit', sans-serif; font-style: normal; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(245,243,238,0.5); margin-top: 2px; }
+
+/* ── Progress ── */
+.progress-card {
+  background: var(--ink);
+  border-radius: 16px;
+  padding: 24px 20px;
+  display: none;
+  color: var(--paper);
+}
+.progress-card.show { display: block; }
+.progress-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+.progress-sub { font-size: 11px; color: rgba(245,243,238,0.5); margin-bottom: 18px; }
+.progress-track {
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--gold2));
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.6s ease;
+}
+.progress-steps { display: flex; flex-direction: column; gap: 8px; }
+.prog-step {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px;
+  color: rgba(245,243,238,0.4);
+  transition: color 0.3s;
+}
+.prog-step.done { color: rgba(245,243,238,0.9); }
+.prog-step.active { color: var(--gold2); }
+.prog-step-icon { font-size: 14px; width: 20px; text-align: center; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.prog-step.active .prog-step-icon { animation: pulse 1.2s ease infinite; }
+
+/* ── Result ── */
+.result-card {
+  background: var(--cream);
+  border-radius: 16px;
+  border: 1.5px solid var(--gold);
+  overflow: hidden;
+  display: none;
+  box-shadow: 0 4px 32px rgba(201,168,76,0.15);
+}
+.result-card.show { display: block; }
+.result-head {
+  padding: 14px 18px;
+  background: rgba(201,168,76,0.1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.result-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.result-body { padding: 16px; }
+video#outputVideo {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+  background: #000;
+  max-height: 340px;
+  object-fit: contain;
+}
+.result-actions { display: flex; gap: 10px; margin-top: 14px; }
+.btn-dl {
+  flex: 1;
+  padding: 14px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 10px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-retry {
+  padding: 14px 20px;
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-dl:active, .btn-retry:active { transform: scale(0.96); }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 12px 22px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.35s;
+  z-index: 9999;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.err { background: #7f1d1d; }
+.toast.ok { background: #14532d; }
+
+/* ── Spinner ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(201,168,76,0.3);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+footer {
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+  padding-top: 8px;
+  opacity: 0.5;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="logo">Vi<em>vid</em></div>
+    <div class="tagline">AI · Image to Video · Powered by Kling</div>
+    <div class="header-deco">✦</div>
+  </header>
+
+  <!-- API Key -->
+  <div style="padding: 0 24px;">
+    <div class="api-bar" id="apiBar">
+      <div class="api-dot" id="apiDot"></div>
+      <input class="api-input" id="apiKeyInput" type="password"
+        placeholder="fal.ai APIキーを入力 (fal_xxxxxxxx)" autocomplete="off" />
+      <button class="api-save" onclick="saveApiKey()">保存</button>
+    </div>
+    <div class="api-status" id="apiStatus">APIキーを入力してください</div>
+  </div>
+
+  <main>
+    <!-- Step 1 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="step-num">1</div>
+        <div class="section-title">画像をアップロード</div>
+      </div>
+      <div class="section-body">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/*" onchange="handleFile(event)" />
+          <img id="previewImg" />
+          <div id="uploadContent">
+            <div class="upload-icon">🖼</div>
+            <div class="upload-label">タップして画像を選択</div>
+            <div class="upload-hint">JPEG · PNG · HEIC 対応</div>
+          </div>
+          <div class="img-badge">✦ 選択済み</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="section">
+      <div class="section-head">
+        <div class="step-num">2</div>
+        <div class="section-title">モーションを選択</div>
+      </div>
+      <div class="section-body">
+        <div class="motion-list">
+          <div class="motion-item active" data-motion="zoom" onclick="selectMotion(this)">
+            <div class="motion-emoji">🔭</div>
+            <div class="motion-text">
+              <div class="motion-name">3D ズーム</div>
+              <div class="motion-desc">被写体に引き込まれるシネマティックズーム</div>
+            </div>
+            <div class="motion-radio"></div>
+          </div>
+          <div class="motion-item" data-motion="sway" onclick="selectMotion(this)">
+            <div class="motion-emoji">🌊</div>
+            <div class="motion-text">
+              <div class="motion-name">体を左右に動かす</div>
+              <div class="motion-desc">人物が自然にスウェイ・揺れる動き</div>
+            </div>
+            <div class="motion-radio"></div>
+          </div>
+          <div class="motion-item" data-motion="hair" onclick="selectMotion(this)">
+            <div class="motion-emoji">💨</div>
+            <div class="motion-text">
+              <div class="motion-name">髪の毛が揺れる</div>
+              <div class="motion-desc">風になびく自然な髪の動き</div>
+            </div>
+            <div class="motion-radio"></div>
+          </div>
+          <div class="motion-item" data-motion="dance" onclick="selectMotion(this)">
+            <div class="motion-emoji">💃</div>
+            <div class="motion-text">
+              <div class="motion-name">踊る・ダンス</div>
+              <div class="motion-desc">体全体でリズミカルに踊る動き</div>
+            </div>
+            <div class="motion-radio"></div>
+          </div>
+          <div class="motion-item" data-motion="custom" onclick="selectMotion(this)">
+            <div class="motion-emoji">✍️</div>
+            <div class="motion-text">
+              <div class="motion-name">カスタム</div>
+              <div class="motion-desc">自由にプロンプトで指示する</div>
+            </div>
+            <div class="motion-radio"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Duration -->
+    <div class="section">
+      <div class="section-head">
+        <div class="step-num">3</div>
+        <div class="section-title">動画の長さ</div>
+      </div>
+      <div class="section-body">
+        <div class="dur-row">
+          <div class="dur-label">再生時間</div>
+          <div class="dur-val" id="durVal">5 <span>秒</span></div>
+        </div>
+        <input type="range" id="durSlider" min="5" max="10" step="5" value="5"
+          oninput="document.getElementById('durVal').innerHTML=this.value+' <span>秒</span>'" />
+        <div class="dur-ticks">
+          <span>5秒</span>
+          <span>10秒</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Prompt -->
+    <div class="section" id="promptSection">
+      <div class="section-head">
+        <div class="step-num">4</div>
+        <div class="section-title">プロンプト（動きの指示）</div>
+      </div>
+      <div class="section-body">
+        <div class="prompt-wrap">
+          <div class="prompt-label">プリセット</div>
+          <div class="prompt-presets" id="presetChips"></div>
+          <textarea id="promptInput" rows="3" placeholder="例：The person gently sways left and right, hair flowing in the breeze"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generate -->
+    <button class="gen-btn" id="genBtn" onclick="generate()">
+      Generate Video
+      <span class="gen-btn-sub">Kling AI · fal.ai</span>
+    </button>
+
+    <!-- Progress -->
+    <div class="progress-card" id="progressCard">
+      <div class="progress-title">生成中...</div>
+      <div class="progress-sub" id="progressSub">Kling AIにリクエスト送信中</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-steps">
+        <div class="prog-step" id="step1"><div class="prog-step-icon">📤</div>画像をアップロード中</div>
+        <div class="prog-step" id="step2"><div class="prog-step-icon">🧠</div>AIがモーションを解析中</div>
+        <div class="prog-step" id="step3"><div class="prog-step-icon">🎬</div>動画をレンダリング中</div>
+        <div class="prog-step" id="step4"><div class="prog-step-icon">✅</div>完了</div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-card" id="resultCard">
+      <div class="result-head">
+        <div class="result-badge">✦ 生成完了</div>
+      </div>
+      <div class="result-body">
+        <video id="outputVideo" controls playsinline autoplay loop></video>
+        <div class="result-actions">
+          <button class="btn-dl" onclick="downloadVideo()">⬇ ダウンロード</button>
+          <button class="btn-retry" onclick="resetResult()">↩ やり直す</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>VIVID · Kling AI via fal.ai · ローカル専用</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let FAL_KEY = localStorage.getItem('fal_key') || '';
+let uploadedFile = null;
+let uploadedDataUrl = null;
+let selectedMotion = 'zoom';
+let currentVideoUrl = null;
+let pollTimer = null;
+
+// Motion prompts
+const MOTION_PROMPTS = {
+  zoom: {
+    label: '3Dズーム',
+    prompt: 'Slow cinematic zoom into the subject, camera gradually pushing forward with subtle depth-of-field effect, smooth and natural motion',
+    presets: ['ゆっくりズームイン', 'ドラマチックズーム', 'ケンバーンズ効果']
+  },
+  sway: {
+    label: '体の揺れ',
+    prompt: 'The person gently sways left and right in a natural, relaxed motion, subtle body movement as if swaying to music',
+    presets: ['軽く左右に揺れる', 'リズムに乗る', '風に揺られる']
+  },
+  hair: {
+    label: '髪が揺れる',
+    prompt: 'The person\'s hair flows and sways gently in a soft breeze, natural and realistic hair motion, slight head movement',
+    presets: ['風になびく', 'ゆっくり揺れる', '自然な動き']
+  },
+  dance: {
+    label: 'ダンス',
+    prompt: 'The person dances rhythmically, swaying hips and moving body to music, natural dance movements, dynamic and expressive',
+    presets: ['ヒップを振る', 'リズミカルに踊る', 'セクシーに踊る']
+  },
+  custom: {
+    label: 'カスタム',
+    prompt: '',
+    presets: ['歩く', '笑顔になる', '手を振る', '振り返る']
+  }
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if(FAL_KEY) {
+    document.getElementById('apiKeyInput').value = FAL_KEY;
+    setApiOk(true);
+  }
+  updatePromptUI('zoom');
+});
+
+// ── API Key ───────────────────────────────────────────────────────────────
+function saveApiKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if(!val) { toast('APIキーを入力してください', 'err'); return; }
+  FAL_KEY = val;
+  localStorage.setItem('fal_key', val);
+  setApiOk(true);
+  toast('APIキーを保存しました', 'ok');
+}
+function setApiOk(ok) {
+  const bar = document.getElementById('apiBar');
+  const dot = document.getElementById('apiDot');
+  const status = document.getElementById('apiStatus');
+  if(ok) {
+    bar.classList.add('ok');
+    dot.style.background = '#4ade80';
+    status.textContent = '✓ APIキー設定済み';
+    status.style.color = '#4ade80';
+  } else {
+    bar.classList.remove('ok');
+    dot.style.background = '#c05a2e';
+    status.textContent = 'APIキーを入力してください';
+    status.style.color = '';
+  }
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────
+function handleFile(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  uploadedFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    uploadedDataUrl = ev.target.result;
+    const img = document.getElementById('previewImg');
+    img.src = uploadedDataUrl;
+    img.style.display = 'block';
+    document.getElementById('uploadContent').style.display = 'none';
+    document.getElementById('uploadZone').classList.add('filled');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Motion ────────────────────────────────────────────────────────────────
+function selectMotion(el) {
+  document.querySelectorAll('.motion-item').forEach(m => m.classList.remove('active'));
+  el.classList.add('active');
+  selectedMotion = el.dataset.motion;
+  updatePromptUI(selectedMotion);
+}
+
+function updatePromptUI(motion) {
+  const data = MOTION_PROMPTS[motion];
+  const textarea = document.getElementById('promptInput');
+  const chipsEl = document.getElementById('presetChips');
+
+  textarea.value = data.prompt;
+
+  chipsEl.innerHTML = '';
+  data.presets.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'preset-chip';
+    chip.textContent = p;
+    chip.onclick = () => {
+      document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      applyPreset(motion, p);
+    };
+    chipsEl.appendChild(chip);
+  });
+}
+
+function applyPreset(motion, preset) {
+  const textarea = document.getElementById('promptInput');
+  const presetPrompts = {
+    // zoom
+    'ゆっくりズームイン': 'Very slow, smooth zoom into the subject, gradual push forward, cinematic feel',
+    'ドラマチックズーム': 'Dramatic fast zoom into the subject face, intense and cinematic, slight camera shake',
+    'ケンバーンズ効果': 'Ken Burns effect, slow pan and zoom across the image, documentary style',
+    // sway
+    '軽く左右に揺れる': 'The person gently and subtly sways left and right, very natural relaxed movement',
+    'リズムに乗る': 'The person bobs and sways rhythmically as if listening to music, head nodding slightly',
+    '風に揺られる': 'The person and their clothes sway softly in a gentle breeze, natural wind effect',
+    // hair
+    '風になびく': 'Hair flows and billows dramatically in a strong breeze, beautiful natural motion',
+    'ゆっくり揺れる': 'Hair gently and slowly sways, very subtle natural movement, soft and graceful',
+    '自然な動き': 'Natural realistic hair movement, slight breeze causing gentle flowing motion',
+    // dance
+    'ヒップを振る': 'The person rhythmically sways their hips left and right, sensual dance movement',
+    'リズミカルに踊る': 'The person dances energetically, full body movement, arms and hips moving to the beat',
+    'セクシーに踊る': 'The person dances in a slow, sensual way, smooth hip movements, graceful and expressive',
+    // custom
+    '歩く': 'The person walks naturally forward, smooth realistic walking motion',
+    '笑顔になる': 'The person slowly breaks into a warm, natural smile, subtle facial animation',
+    '手を振る': 'The person waves their hand gently, natural friendly waving motion',
+    '振り返る': 'The person slowly turns their head and looks back over their shoulder',
+  };
+  textarea.value = presetPrompts[preset] || textarea.value;
+}
+
+// ── Generate ─────────────────────────────────────────────────────────────
+async function generate() {
+  if(!FAL_KEY) { toast('APIキーを設定してください', 'err'); return; }
+  if(!uploadedFile) { toast('画像をアップロードしてください', 'err'); return; }
+
+  const prompt = document.getElementById('promptInput').value.trim();
+  if(!prompt) { toast('プロンプトを入力してください', 'err'); return; }
+
+  const duration = document.getElementById('durSlider').value;
+
+  document.getElementById('genBtn').disabled = true;
+  document.getElementById('resultCard').classList.remove('show');
+  showProgress(true);
+  setStep(1);
+  setFill(10);
+
+  try {
+    // Step 1: Upload image to fal storage
+    updateSub('画像をfal.aiにアップロード中...');
+    const imageUrl = await uploadToFal(uploadedFile);
+    setStep(2); setFill(30);
+
+    // Step 2: Submit to Kling
+    updateSub('Kling AIにジョブを送信中...');
+    const requestId = await submitKling(imageUrl, prompt, duration);
+    setStep(3); setFill(50);
+
+    // Step 3: Poll for result
+    updateSub('AIが動画を生成中... しばらくお待ちください');
+    const videoUrl = await pollResult(requestId);
+    setStep(4); setFill(100);
+
+    updateSub('完了！');
+    await sleep(600);
+
+    // Show result
+    showProgress(false);
+    currentVideoUrl = videoUrl;
+    document.getElementById('outputVideo').src = videoUrl;
+    document.getElementById('resultCard').classList.add('show');
+    document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast('動画が生成されました！', 'ok');
+
+  } catch(err) {
+    showProgress(false);
+    toast('エラー: ' + (err.message || '生成に失敗しました'), 'err');
+    console.error(err);
+  }
+
+  document.getElementById('genBtn').disabled = false;
+}
+
+// ── fal.ai: Upload image ──────────────────────────────────────────────────
+async function uploadToFal(file) {
+  // Use fal storage upload endpoint
+  const res = await fetch('https://rest.alpha.fal.ai/storage/upload/initiate', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Key ' + FAL_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      file_name: file.name || 'image.jpg',
+      content_type: file.type || 'image/jpeg'
+    })
+  });
+
+  if(!res.ok) {
+    // Fallback: try direct upload via base64 approach using fal's upload URL
+    return await uploadToFalDirect(file);
+  }
+
+  const { upload_url, file_url } = await res.json();
+
+  // Upload to presigned URL
+  await fetch(upload_url, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'image/jpeg' },
+    body: file
+  });
+
+  return file_url;
+}
+
+async function uploadToFalDirect(file) {
+  // Direct upload to fal storage
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch('https://rest.alpha.fal.ai/storage/upload', {
+    method: 'POST',
+    headers: { 'Authorization': 'Key ' + FAL_KEY },
+    body: formData
+  });
+
+  if(!res.ok) {
+    const err = await res.text();
+    throw new Error('画像アップロード失敗: ' + err);
+  }
+
+  const data = await res.json();
+  return data.url || data.file_url;
+}
+
+// ── fal.ai: Submit Kling job ───────────────────────────────────────────────
+async function submitKling(imageUrl, prompt, duration) {
+  // Use Kling 1.6 standard (most cost-effective)
+  const endpoint = 'fal-ai/kling-video/v1.6/standard/image-to-video';
+
+  const res = await fetch(`https://queue.fal.run/${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Key ' + FAL_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      image_url: imageUrl,
+      prompt: prompt,
+      duration: String(duration),
+      aspect_ratio: '9:16'
+    })
+  });
+
+  if(!res.ok) {
+    const err = await res.text();
+    throw new Error('ジョブ送信失敗: ' + err);
+  }
+
+  const data = await res.json();
+  return data.request_id;
+}
+
+// ── fal.ai: Poll result ───────────────────────────────────────────────────
+async function pollResult(requestId) {
+  const endpoint = 'fal-ai/kling-video/v1.6/standard/image-to-video';
+  const statusUrl = `https://queue.fal.run/${endpoint}/requests/${requestId}/status`;
+  const resultUrl = `https://queue.fal.run/${endpoint}/requests/${requestId}`;
+
+  let elapsed = 0;
+  const maxWait = 300000; // 5min
+  const interval = 4000;
+
+  while(elapsed < maxWait) {
+    await sleep(interval);
+    elapsed += interval;
+
+    // Update progress visually
+    const fakePct = Math.min(50 + Math.floor(elapsed / maxWait * 45), 95);
+    setFill(fakePct);
+
+    const res = await fetch(statusUrl, {
+      headers: { 'Authorization': 'Key ' + FAL_KEY }
+    });
+
+    if(!res.ok) continue;
+    const data = await res.json();
+
+    if(data.status === 'COMPLETED') {
+      // Fetch result
+      const resultRes = await fetch(resultUrl, {
+        headers: { 'Authorization': 'Key ' + FAL_KEY }
+      });
+      const result = await resultRes.json();
+      const videoUrl = result?.video?.url || result?.videos?.[0]?.url;
+      if(!videoUrl) throw new Error('動画URLが取得できませんでした');
+      return videoUrl;
+    }
+
+    if(data.status === 'FAILED') {
+      throw new Error('Kling AIの生成に失敗しました: ' + (data.error || '不明なエラー'));
+    }
+
+    // Update sub text with elapsed time
+    const sec = Math.floor(elapsed / 1000);
+    updateSub(`AIが動画を生成中... ${sec}秒経過`);
+  }
+
+  throw new Error('タイムアウト：5分経過しました');
+}
+
+// ── Download ──────────────────────────────────────────────────────────────
+async function downloadVideo() {
+  if(!currentVideoUrl) return;
+  try {
+    const res = await fetch(currentVideoUrl);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vivid_${Date.now()}.mp4`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('ダウンロード開始！', 'ok');
+  } catch(e) {
+    // Safari fallback: open in new tab
+    window.open(currentVideoUrl, '_blank');
+    toast('新しいタブで開きました。長押しで保存できます。');
+  }
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────
+function resetResult() {
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('outputVideo').src = '';
+  currentVideoUrl = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────
+function showProgress(show) {
+  document.getElementById('progressCard').classList.toggle('show', show);
+}
+function setFill(pct) {
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+function updateSub(txt) {
+  document.getElementById('progressSub').textContent = txt;
+}
+function setStep(n) {
+  for(let i = 1; i <= 4; i++) {
+    const el = document.getElementById('step' + i);
+    el.classList.remove('active', 'done');
+    if(i < n) el.classList.add('done');
+    else if(i === n) el.classList.add('active');
+  }
+}
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = 'toast'; }, 3500);
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
