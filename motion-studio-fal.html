@@ -51,7 +51,7 @@ header {
 }
 .logo em { font-style: italic; color: var(--gold); }
 .tagline {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -104,7 +104,7 @@ header {
   border: none;
   border-radius: 7px;
   padding: 6px 12px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   font-family: 'Outfit', sans-serif;
   letter-spacing: 0.08em;
@@ -114,7 +114,7 @@ header {
 }
 .api-save:active { transform: scale(0.94); }
 .api-status {
-  font-size: 11px;
+  font-size: 12px;
   color: rgba(245,243,238,0.5);
   margin-top: 6px;
   padding: 0 16px;
@@ -173,7 +173,7 @@ main { flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 
 }
 .upload-icon { font-size: 32px; margin-bottom: 10px; }
 .upload-label { font-size: 14px; font-weight: 600; color: var(--text); }
-.upload-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.upload-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 #previewImg {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
@@ -216,7 +216,7 @@ main { flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 
 .motion-emoji { font-size: 24px; flex-shrink: 0; }
 .motion-text { flex: 1; }
 .motion-name { font-size: 14px; font-weight: 600; color: var(--text); }
-.motion-desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+.motion-desc { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
 .motion-radio {
   width: 18px; height: 18px;
   border-radius: 50%;
@@ -265,13 +265,13 @@ input[type=range]::-webkit-slider-thumb {
 .dur-ticks span { font-size: 10px; color: var(--muted); }
 
 .prompt-wrap { display: flex; flex-direction: column; gap: 8px; }
-.prompt-label { font-size: 11px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+.prompt-label { font-size: 12px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
 .prompt-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 .preset-chip {
   padding: 5px 12px;
   border-radius: 20px;
   border: 1px solid var(--border);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   cursor: pointer;
   transition: all 0.2s;
@@ -350,7 +350,7 @@ textarea::placeholder { color: var(--muted); }
   font-style: italic;
   margin-bottom: 4px;
 }
-.progress-sub { font-size: 11px; color: rgba(245,243,238,0.5); margin-bottom: 18px; }
+.progress-sub { font-size: 12px; color: rgba(245,243,238,0.5); margin-bottom: 18px; }
 .progress-track {
   height: 3px;
   background: rgba(255,255,255,0.1);
@@ -393,7 +393,7 @@ textarea::placeholder { color: var(--muted); }
   border-bottom: 1px solid var(--border);
 }
 .result-badge {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -439,11 +439,11 @@ video#outputVideo {
 
 /* error detail box */
 .err-box {
-  background: rgba(127,29,29,0.15);
-  border: 1px solid rgba(200,50,50,0.3);
+  background: #3b0a0a;
+  border: 1.5px solid rgba(220,50,50,0.5);
   border-radius: 10px;
   padding: 12px 14px;
-  font-size: 11px;
+  font-size: 12px;
   color: #fca5a5;
   line-height: 1.6;
   display: none;
@@ -624,8 +624,10 @@ footer {
         <div class="prog-step" id="step3"><div class="prog-step-icon">🎬</div>動画をレンダリング中</div>
         <div class="prog-step" id="step4"><div class="prog-step-icon">✅</div>完了</div>
       </div>
-      <div class="err-box" id="errBox"></div>
     </div>
+
+    <!-- Error display (permanent, outside progress card) -->
+    <div class="err-box" id="errBox"></div>
 
     <div class="result-card" id="resultCard">
       <div class="result-head">
@@ -791,7 +793,7 @@ async function generate() {
 
   document.getElementById('genBtn').disabled = true;
   document.getElementById('resultCard').classList.remove('show');
-  document.getElementById('errBox').classList.remove('show');
+  const eb = document.getElementById('errBox'); eb.classList.remove('show'); eb.innerHTML = '';
   showProgress(true);
   setStep(1); setFill(10);
 
@@ -824,7 +826,7 @@ async function generate() {
   } catch(err) {
     showProgress(false);
     showErr(err.message);
-    toast('生成に失敗しました','err');
+    toast('エラー詳細を確認してください','err');
     console.error(err);
   }
 
@@ -973,8 +975,9 @@ function setStep(n) {
 }
 function showErr(msg) {
   const box = document.getElementById('errBox');
-  box.textContent = '⚠ ' + msg;
+  box.innerHTML = '<div style="font-weight:700;color:#f87171;margin-bottom:6px;">⚠ エラーの詳細</div><div style="opacity:0.9">' + msg + '</div>';
   box.classList.add('show');
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function toast(msg, type='') {
   const t = document.getElementById('toast');
